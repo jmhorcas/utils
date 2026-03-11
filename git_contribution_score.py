@@ -1,17 +1,24 @@
 from pydriller import Repository
 from collections import defaultdict
 import re
+from datetime import datetime
 
 # --- CONFIGURACIÓN ---
 REPO_PATH = "/home/josemi/Downloads/healthcalc/"
 EXCLUDE = ["github-classroom[bot]", "dependabot[bot]", "ManagerUser", "José Miguel Horcas"]
 ALIASES = {
-    "Yusef Barakat": "Yussef Barakat Nieto",
+    "MarioPeralesDiaz": "Mario Perales Díaz",
+    "Estela Anaya": "Estela"
+
 }
+RAMA_ESPECIFICA = "P1"  # Pon None si quieres todas las ramas
+FECHA_INICIO = datetime(2026, 2, 24)  # Año, Mes, Día
 
 # --- CONFIGURACIÓN DE NOTAS ---
-NOTA_GRUPAL = 9.0
+NOTA_GRUPAL = 4.5
 FACTOR_SENSIBILIDAD = 0.05  # Factor de Sensibilidad
+MAX_BONUS = 2.0  # Nadie puede subir más de 2 puntos sobre la nota grupal
+
 
 # Regex para detectar Conventional Commits (Documentación)
 CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"
@@ -19,8 +26,11 @@ CONVENTIONAL_REGEX = r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|r
 def calcular_esfuerzo():
     raw_stats = defaultdict(lambda: {"commits": 0, "complexity": 0, "doc_score": 0, "atomicity": 0})
 
+    # Aplicamos los filtros en el objeto Repository
+    repo = Repository(REPO_PATH, only_in_branch=RAMA_ESPECIFICA, since=FECHA_INICIO)
+    
     # Analizar el repositorio
-    for commit in Repository(REPO_PATH).traverse_commits():
+    for commit in repo.traverse_commits():
         author_name = commit.author.name
         
         # Filtrado de Omisión
@@ -84,9 +94,12 @@ def calcular_esfuerzo():
         # Si aporta más del esperado, sube; si aporta menos, baja.
         # El factor 0.1 controla qué tan sensible es la nota a la diferencia.
         desviacion = percentage - PORCENTAJE_ESPERADO
-        nota_individual = NOTA_GRUPAL + (desviacion * FACTOR_SENSIBILIDAD)
+        ajuste = desviacion * FACTOR_SENSIBILIDAD
         
-        # Limitar la nota entre 0 y 10
+        # Aplicamos el tope de bonus/penalización
+        ajuste = max(-MAX_BONUS, min(MAX_BONUS, ajuste))
+        
+        nota_individual = NOTA_GRUPAL + ajuste
         nota_individual = max(0, min(10, nota_individual))
         
         print(f"{author:<25} | {percentage:>10.2f}% | {nota_individual:>10.2f}")
